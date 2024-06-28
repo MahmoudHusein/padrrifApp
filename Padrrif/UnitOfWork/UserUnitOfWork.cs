@@ -46,7 +46,7 @@ public class UserUnitOfWork : UnitOfWork<User>, IUserUnitOfWork
         RoleEnum role = (RoleEnum)userenum;
 
         if( userFromDb != null)
-        users  = await _repository.GetList(q => q.Where(e => e.Role == role && e.City == userFromDb.City));
+        users  = await _repository.GetList(q => q.Where(e => e.Role == role && e.GovernorateId == userFromDb.GovernorateId&& e.IsConfirmed==true));
 
         return users;
     }
