@@ -1,5 +1,4 @@
-﻿
-namespace Padrrif;
+﻿namespace Padrrif;
 
 public class VillageUnitOfWork : UnitOfWork<Village>, IVillageUnitOfWork
 {
@@ -12,10 +11,12 @@ public class VillageUnitOfWork : UnitOfWork<Village>, IVillageUnitOfWork
 
         return base.Create(entity);
     }
+
     public Village MapFromVillageDtoToVillage(VillageDto dto)
         => new()
         {
             Id = dto.Id,
-            Name = dto.Name
+            Name = dto.Name,
+            GovernorateId = dto.GovernorateId // Setting GovernorateId
         };
 }

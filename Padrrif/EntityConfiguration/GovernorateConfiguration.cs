@@ -13,5 +13,9 @@ public class GovernorateConfiguration : BaseEntityConfiguration<Governorate>
         builder.HasMany(e => e.Users)
                .WithOne(e => e.Governorate)
                .HasForeignKey(e => e.GovernorateId);
+
+        builder.HasMany(g => g.Villages)
+               .WithOne(v => v.Governorate)
+               .HasForeignKey(v => v.GovernorateId); // Configuring relationship
     }
 }

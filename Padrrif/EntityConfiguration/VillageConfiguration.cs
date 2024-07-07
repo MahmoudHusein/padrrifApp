@@ -10,6 +10,13 @@ public class VillageConfiguration : BaseEntityConfiguration<Village>
                .HasMaxLength(50)
                .IsRequired();
 
+        builder.Property(e => e.GovernorateId)
+               .IsRequired();
+
         builder.HasMany(e => e.Damages).WithOne(e => e.Village).HasForeignKey(e => e.VillageId);
+
+        builder.HasOne(v => v.Governorate)
+               .WithMany(g => g.Villages)
+               .HasForeignKey(v => v.GovernorateId); // Configuring relationship
     }
 }
