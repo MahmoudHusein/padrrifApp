@@ -37,7 +37,7 @@ public class AuthUnitOfWork : IAuthUnitOfWork
     #region login
     public async Task<UserLoginDto?> Login(LoginDto dto)
     {
-        User? userFromDb = null;
+        User? userFromDb = await _repository.GetSingleEntityWithSomeCondiition(e=> e.Where(u=>u.Email == dto.Email || u.IdentityNumber == dto.IdentityNumber));
 
         if (dto.IdentityNumber > 99999999)
             userFromDb = await _repository.GetSingleEntityWithSomeCondiition(q => q.Where(u => u.IdentityNumber == dto.IdentityNumber && u.IsConfirmed));
@@ -121,74 +121,72 @@ public class AuthUnitOfWork : IAuthUnitOfWork
     }
 
     #endregion
-   private async Task<TokenDto> Register(User user, RoleEnum role)
-{
-    user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
-
-    if (role == RoleEnum.Farmer)
+    private async Task<TokenDto> Register(User user, RoleEnum role)
     {
-        user.Role = RoleEnum.Farmer;
+        
+        user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
-        // Set ComiteeId to null as required for Farmers
-        user.ComiteeId = null;
-
-        // Check if the user performing the registration is an employee
-        Guid registeringUserId = _contextAccessor.GetUserId();
-        User? registeringUser = await _repository.GetById(registeringUserId);
-        if (registeringUser != null && registeringUser.Role == RoleEnum.Empolyee)
+        if (role == RoleEnum.Farmer)
         {
-            // If an employee is registering the farmer, confirm the farmer's account directly
-            user.IsConfirmed = true;
-        }
+            user.Role = RoleEnum.Farmer;
 
-        // Handle notifications only if the user is not confirmed
-        if (!user.IsConfirmed)
-        {
+            user.ComiteeId = null;
+
             List<User> employees = await _repository.GetList(q => q.Where(e => e.Role == RoleEnum.Empolyee && e.GovernorateId == user.GovernorateId));
 
-            List<HubConnectedUser> onlineUsers = _conecctedUsers.HubConnectedUsers
-                .Where(e => e.Role == RoleEnum.Empolyee && e.GovernorateId == user.GovernorateId)
-                .ToList();
+            List<HubConnectedUser> onlineUsers = _conecctedUsers.HubConnectedUsers.Where(e => e.Role == RoleEnum.Empolyee && e.GovernorateId == user.GovernorateId)
+                                                                      .ToList();
 
             List<Guid> onlineUsersIds = onlineUsers.Select(e => e.Id).ToList();
 
             List<Guid> offlineEmployeesIds = employees.Where(e => !onlineUsersIds.Contains(e.Id))
-                .Select(e => e.Id)
-                .ToList();
+                                                   .Select(e=>e.Id)
+                                                   .ToList();
 
             List<string> userHubIds = onlineUsers.Select(e => e.ConnectionId).ToList();
 
-            string notificationMessage = $"المزراع {user.Name} انشاء حساب و بانتظار الموافقة";
-
-            foreach (var id in userHubIds)
-                await _hubContext.Clients.Client(id).ReciveNotification(notificationMessage);
-
-            foreach (var id in offlineEmployeesIds)
+            Guid EmployeeID = _contextAccessor.GetUserId(); 
+            User? UserFromDb = await _repository.GetById(EmployeeID);
+            if (EmployeeID != Guid.Empty && UserFromDb != null && UserFromDb.Role == RoleEnum.Empolyee)
             {
-                Notifaction notification = new()
-                {
-                    Message = notificationMessage,
-                    UserId = id,
-                    SeenAt = null
-                };
-                await _notifactionRepository.Add(notification);
+                user.IsConfirmed = true;
             }
+            else
+            {
+
+                string notifactionMessage = $"المزراع {user.Name} انشاء حساب و بانتظار الموافقة";
+
+                foreach (var id in userHubIds)
+                    await _hubContext.Clients.Client(id).ReciveNotification(notifactionMessage);
+
+                foreach (var id in offlineEmployeesIds)
+                {
+                    Notifaction notifaction = new()
+                    {
+                        Message = notifactionMessage,
+                        UserId = id,
+                        SeenAt = null
+                    };
+                    await _notifactionRepository.Add(notifaction);
+                }
+            }
+           
         }
-    }
-    else
-    {
-        user.Role = RoleEnum.Empolyee;
-        user.IsConfirmed = true;
-    }
+        else
+        {
+            user.Role = RoleEnum.Empolyee;
+            user.IsConfirmed = true;
+        }
 
-    await _repository.Add(user);
+        await _repository.Add(user);
 
-    List<Priviliege> privileges = await _userPrivilegeUnitOfWork.GetPriviliegesRelatedToUser(user.Id);
-    List<string> privilegeNames = privileges.Select(p => p.Name).ToList();
-    return new TokenDto
-    {
-        Value = _jwtProvider.GenrateAccessToken(user, privilegeNames),
-        ExpireAt = DateTime.UtcNow.AddMonths(_jwtAccessOptions.ExpireTimeInMonths),
-    };
-}
+        Guid userId = _contextAccessor.GetUserId();
+        List<Priviliege> pivs = await _userPrivilegeUnitOfWork.GetPriviliegesRelatedToUser(userId);
+        List<string> privNames = pivs.Select(p => p.Name).ToList();
+        return new()
+        {
+            Value = _jwtProvider.GenrateAccessToken(user, privNames),
+            ExpireAt = DateTime.UtcNow.AddMonths(_jwtAccessOptions.ExpireTimeInMonths),
+        };
+    }
 }

@@ -8,5 +8,5 @@ public interface IUserUnitOfWork : IUnitOfWork<User>
     Task<User?> GetUserWithIdentityNumber(int id);
     Task<List<User>?> GetUserWithName(string name);
     Task<string> UpdateUser(User user);
-
+    Task<List<User>?> GetGovernorateUsers(int role, Guid governorateId);
 }

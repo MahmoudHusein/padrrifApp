@@ -98,4 +98,10 @@ public class UserUnitOfWork : UnitOfWork<User>, IUserUnitOfWork
 
         return res = "User has been updated successfully";
     }
+    public async Task<List<User>?> GetGovernorateUsers(int role, Guid governorateId)
+    {
+        RoleEnum userRole = (RoleEnum)role;
+        List<User>? users = await _repository.GetList(q => q.Where(e => e.Role == userRole && e.GovernorateId == governorateId && e.IsConfirmed));
+        return users;
+    }
 }
